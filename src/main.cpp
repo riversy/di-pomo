@@ -44,7 +44,43 @@ uint8_t dataArray[9] = {
     B11111111
 };
 
+/**
+ * @param ESPRotary r
+ */
+void rotate(ESPRotary &r);
+
+/**
+ *
+ * @param btn
+ */
+void click(Button2 &btn);
+
+/**
+ *
+ * @param btn
+ */
+void resetPosition(Button2 &btn);
+
+/**
+ *
+ * @param r
+ * @return
+ */
+int getPosition(ESPRotary &r);
+
+void buzz();
+
+void visualisePosition(int position);
+void configModeCallback(WiFiManager *myWiFiManager);
+void customShiftOut(uint8_t dataPin, uint8_t clockPin, uint8_t bitOrder, uint8_t val);
+void sendValueToLights(uint8_t value);
+
+void handleBuzz();
 void handleNotFound();
+void handlePosition();
+void handlePosition();
+void handlePositionUp();
+void handlePositionDown();
 
 void setup() {
   Serial.begin(115200);
@@ -89,41 +125,6 @@ void loop() {
   server.handleClient();
 }
 
-void configModeCallback(WiFiManager *myWiFiManager) {
-  Serial.println("Entered config mode");
-  Serial.println(WiFi.softAPIP());
-  //if you used auto generated SSID, print it
-  Serial.println(myWiFiManager->getConfigPortalSSID());
-}
-
-void handleBuzz() {
-  digitalWrite(led, 1);
-  server.send(200, "text/plain", "Buzz 8p");
-  buzz();
-  digitalWrite(led, 0);
-}
-
-void handlePosition() {
-  digitalWrite(led, 1);
-  server.send(200, "text/plain", String(getPosition(r)));
-  digitalWrite(led, 0);
-}
-
-void handlePositionUp() {
-  digitalWrite(led, 1);
-  r.resetPosition((getPosition(r) + 1) * 5);
-  server.send(200, "text/plain", String(getPosition(r)));
-  digitalWrite(led, 0);
-}
-
-void handlePositionDown() {
-  digitalWrite(led, 1);
-  r.resetPosition((getPosition(r) - 1) * 5);
-  server.send(200, "text/plain", String(getPosition(r)));
-
-  digitalWrite(led, 0);
-}
-
 void handleNotFound() {
   digitalWrite(led, 1);
   String message = "File Not Found\n\n";
@@ -141,10 +142,66 @@ void handleNotFound() {
   digitalWrite(led, 0);
 }
 
+int getPosition(ESPRotary &r) {
+  return round(r.getPosition() / 5);
+}
+
 void visualisePosition(int position) {
   Serial.println("visualisePosition");
   Serial.println(position);
   sendValueToLights(dataArray[position]);
+}
+
+void configModeCallback(WiFiManager *myWiFiManager) {
+  Serial.println("Entered config mode");
+  Serial.println(WiFi.softAPIP());
+  //if you used auto generated SSID, print it
+  Serial.println(myWiFiManager->getConfigPortalSSID());
+}
+
+void handleBuzz() {
+  digitalWrite(led, 1);
+  server.send(200, "text/plain", "Buzz 8p");
+  buzz();
+  digitalWrite(led, 0);
+}
+
+void rotate(ESPRotary &r) {
+  visualisePosition(getPosition(r));
+}
+
+void click(Button2 &btn) {
+  registry.setAllHigh();
+  buzz();
+}
+
+void buzz() {
+  tone(BUZZER_PIN, NOTE_F6);
+  delay(250);
+  noTone(BUZZER_PIN);
+}
+
+void resetPosition(Button2 &btn) {
+  r.resetPosition();
+  registry.setAllLow();
+}
+
+void handlePosition() {
+  digitalWrite(led, 1);
+  server.send(200, "text/plain", String(getPosition(r)));
+  digitalWrite(led, 0);
+}
+
+void customShiftOut(uint8_t dataPin, uint8_t clockPin, uint8_t bitOrder, uint8_t val) {
+  byte i = 8;
+  do {
+    digitalWrite(clockPin, LOW);
+    digitalWrite(dataPin, LOW);
+    if (val & 0x80) digitalWrite(dataPin, HIGH);
+    digitalWrite(clockPin, HIGH);
+    val <<= 1;
+  } while (--i);
+  return;
 }
 
 void sendValueToLights(uint8_t value) {
@@ -161,41 +218,17 @@ void sendValueToLights(uint8_t value) {
   digitalWrite(LATCH_PIN, LOW);
 }
 
-void customShiftOut(uint8_t dataPin, uint8_t clockPin, uint8_t bitOrder, uint8_t val) {
-  byte i = 8;
-  do {
-    digitalWrite(clockPin, LOW);
-    digitalWrite(dataPin, LOW);
-    if (val & 0x80) digitalWrite(dataPin, HIGH);
-    digitalWrite(clockPin, HIGH);
-    val <<= 1;
-  } while (--i);
-  return;
+void handlePositionUp() {
+  digitalWrite(led, 1);
+  r.resetPosition((getPosition(r) + 1) * 5);
+  server.send(200, "text/plain", String(getPosition(r)));
+  digitalWrite(led, 0);
 }
 
-/**
- * @param ESPRotary r
- */
-void rotate(ESPRotary &r) {
-  visualisePosition(getPosition(r));
-}
+void handlePositionDown() {
+  digitalWrite(led, 1);
+  r.resetPosition((getPosition(r) - 1) * 5);
+  server.send(200, "text/plain", String(getPosition(r)));
 
-void click(Button2 &btn) {
-  registry.setAllHigh();
-  buzz();
-}
-
-void resetPosition(Button2 &btn) {
-  r.resetPosition();
-  registry.setAllLow();
-}
-
-int getPosition(ESPRotary &r) {
-  return round(r.getPosition() / 5);
-}
-
-void buzz() {
-  tone(BUZZER_PIN, NOTE_F6);
-  delay(250);
-  noTone(BUZZER_PIN);
+  digitalWrite(led, 0);
 }
