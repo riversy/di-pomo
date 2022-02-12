@@ -1,0 +1,4 @@
+.pio
+/cmake-build-d1_mini_lite/
+/cmake-build-debug/
+/CMakeListsPrivate.txt
