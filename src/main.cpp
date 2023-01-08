@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <chords.h>
+#include <buzzer.h>
 #include <ShiftRegister74HC595.h>
 #include <ESP8266WebServer.h>
 
@@ -29,6 +30,7 @@ const int led = 13;
 
 ESP8266WebServer server(80);
 ShiftRegister74HC595<1> registry(DATA_PIN, CLOCK_PIN, LATCH_PIN);
+Buzzer buzzer = {BUZZER_PIN};
 
 int position = 0;
 
@@ -44,28 +46,12 @@ uint8_t dataArray[9] = {
     B11111111
 };
 
-/**
- * @param ESPRotary r
- */
+
 void rotate(ESPRotary &r);
-
-/**
- *
- * @param btn
- */
+void doubleClick(Button2 &btn);
 void click(Button2 &btn);
-
-/**
- *
- * @param btn
- */
 void resetPosition(Button2 &btn);
 
-/**
- *
- * @param r
- * @return
- */
 int getPosition(ESPRotary &r);
 
 void buzz();
@@ -82,8 +68,8 @@ void handlePosition();
 void handlePositionUp();
 void handlePositionDown();
 
-void setup() {
-  Serial.begin(115200);
+void setup() {  
+  Serial.begin(9600);
 
   WiFiManager wifiManager;
   wifiManager.setAPCallback(configModeCallback);
@@ -111,18 +97,21 @@ void setup() {
 
   //set pins to output so you can control buzzer
   pinMode(BUZZER_PIN, OUTPUT);
+  buzzer.begin();
 
-  // r.setChangedHandler(rotate);
-  // b.setClickHandler(click);
-  // b.setLongClickHandler(resetPosition);
+  r.setChangedHandler(rotate);
+  b.setClickHandler(click);
+  b.setDoubleClickHandler(doubleClick);
+  b.setLongClickHandler(resetPosition);
 
-  visualisePosition(5);
+  visualisePosition(0);
 }
 
 void loop() {
   r.loop();
   b.loop();
   server.handleClient();
+  buzzer.refresh();
 }
 
 void handleNotFound() {
@@ -147,8 +136,6 @@ int getPosition(ESPRotary &r) {
 }
 
 void visualisePosition(int position) {
-  Serial.println("visualisePosition");
-  Serial.println(position);
   sendValueToLights(dataArray[position]);
 }
 
@@ -170,15 +157,20 @@ void rotate(ESPRotary &r) {
   visualisePosition(getPosition(r));
 }
 
-void click(Button2 &btn) {
-  registry.setAllHigh();
+void doubleClick(Button2 &btn) {
   buzz();
 }
 
+void click(Button2 &btn) {
+  
+  
+}
+
 void buzz() {
-  tone(BUZZER_PIN, NOTE_F6);
-  delay(250);
-  noTone(BUZZER_PIN);
+  buzzer.queueBeep(200, 1000);  
+  buzzer.queueBeep(200, 1000);  
+  buzzer.queueBeep(200, 1000);    
+  buzzer.queueBeep(500, 3000);    
 }
 
 void resetPosition(Button2 &btn) {
@@ -192,27 +184,9 @@ void handlePosition() {
   digitalWrite(led, 0);
 }
 
-void customShiftOut(uint8_t dataPin, uint8_t clockPin, uint8_t bitOrder, uint8_t val) {
-  byte i = 8;
-  do {
-    digitalWrite(clockPin, LOW);
-    digitalWrite(dataPin, LOW);
-    if (val & 0x80) digitalWrite(dataPin, HIGH);
-    digitalWrite(clockPin, HIGH);
-    val <<= 1;
-  } while (--i);
-  return;
-}
-
 void sendValueToLights(uint8_t value) {
-  Serial.println("sendValueToLights");
-  Serial.println(value);
-
-  // uint8_t pinValues[] = { value };
-  // registry.setAll(pinValues);
-
-
-  customShiftOut(DATA_PIN, CLOCK_PIN, MSBFIRST, value);
+  uint8_t pinValues[] = { value };
+  registry.setAll(pinValues);
 
   digitalWrite(LATCH_PIN, HIGH);
   digitalWrite(LATCH_PIN, LOW);
@@ -221,6 +195,7 @@ void sendValueToLights(uint8_t value) {
 void handlePositionUp() {
   digitalWrite(led, 1);
   r.resetPosition((getPosition(r) + 1) * 5);
+  visualisePosition(getPosition(r));
   server.send(200, "text/plain", String(getPosition(r)));
   digitalWrite(led, 0);
 }
@@ -228,6 +203,7 @@ void handlePositionUp() {
 void handlePositionDown() {
   digitalWrite(led, 1);
   r.resetPosition((getPosition(r) - 1) * 5);
+  visualisePosition(getPosition(r));
   server.send(200, "text/plain", String(getPosition(r)));
 
   digitalWrite(led, 0);
