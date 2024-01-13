@@ -32,8 +32,6 @@ ESP8266WebServer server(80);
 ShiftRegister74HC595<1> registry(DATA_PIN, CLOCK_PIN, LATCH_PIN);
 Buzzer buzzer = {BUZZER_PIN};
 
-int position = 0;
-
 uint8_t dataArray[9] = {
     B00000000,
     B00000001,
@@ -58,12 +56,10 @@ void buzz();
 
 void visualisePosition(int position);
 void configModeCallback(WiFiManager *myWiFiManager);
-void customShiftOut(uint8_t dataPin, uint8_t clockPin, uint8_t bitOrder, uint8_t val);
 void sendValueToLights(uint8_t value);
 
 void handleBuzz();
 void handleNotFound();
-void handlePosition();
 void handlePosition();
 void handlePositionUp();
 void handlePositionDown();
